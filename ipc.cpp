@@ -5,34 +5,105 @@
 
 #include <stdio.h>
 #include <iostream>
+#include <mutex>
+#include <thread>
+#include <algorithm>
+#include <iostream>
+#include <fstream>
+
+
 #ifndef USE_BOOST
 #include <regex>
 #else
 #include <boost/regex.hpp>
 #endif
-#include <mutex>
-#include <thread>
-#include <algorithm>
+
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/prettywriter.h"
+#include "rapidjson/filereadstream.h"
+#include "rapidjson/filewritestream.h"
 
 using namespace cv;
 using namespace std;
+using namespace rapidjson;
+
 #define MAXLINE 1024
 #define DEBUG true
+#define BUF_LEN_JSON (4096)
+
+const char STR_IPDOMAIN[]="IPDomain";
+const char STR_MACTABLE[]="MacTable";
+const char STR_MAC[]="mac";
+const char STR_VENDOR[]="vendor";
 
 mutex m;
 
+int parse_json(const char* jsonfile, string& IPDomain, vector<tuple<string,string>>& mac_table){
+    FILE *fp = fopen(jsonfile , "rb");
+    if (fp == nullptr){
+        cerr<<"Fail to find the json config file"<<endl;
+        return -1;
+    }
+    char readbuffer[BUF_LEN_JSON];
+    FileReadStream frs(fp , readbuffer , sizeof(readbuffer));
+    Document doc;
+    doc.ParseStream(frs);
+    fclose(fp);
+
+    assert(!doc.HasParseError());
+
+    if (doc.HasMember(STR_IPDOMAIN)){
+        cout<<"found IPDomain entry"<<endl;
+
+        //提取数组元素（声明的变量必须为引用）
+        Value &val = doc[STR_IPDOMAIN];
+        assert(val.IsString());
+        IPDomain = val.GetString();
+        cout<<"IPDomain from json: :" << IPDomain <<endl;
+    }
+
+    Value &vs = doc[STR_MACTABLE];
+    assert(vs.IsArray());
+
+    cout<<"parse result:"<<endl;
+    for (auto i = 0; i<vs.Size(); i++)
+    {
+        //逐个提取数组元素（声明的变量必须为引用）
+        Value &v = vs[i];
+        assert(v.IsObject());
+        assert(v.HasMember(STR_MAC));
+        string mac = v[STR_MAC].GetString();
+        string vendor = "hc"; //haikang by default
+        if (v.HasMember(STR_VENDOR)){
+            vendor = v[STR_VENDOR].GetString();
+        }
+        cout<<"mac:"<<mac<<"  vendor:"<<vendor<<endl;
+        mac_table.push_back(make_tuple(mac, vendor));
+    }
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
-
-
+	string IPDomain;
 	vector<tuple<string,string>> mac_table;
+#if 0
     mac_table.push_back(make_tuple("b4:a3:82:5e:5f:15", "hc"));
     mac_table.push_back(make_tuple("4c:bd:8f:c6:30:1f", "hc"));
     mac_table.push_back(make_tuple("4c:bd:8f:3f:19:db", "hc"));
     mac_table.push_back(make_tuple("b4:a3:82:66:8b:e6", "hc"));
     mac_table.push_back(make_tuple("b4:a3:82:6a:80:f0", "hc"));
     mac_table.push_back(make_tuple("14:a7:8b:8f:d8:37", "dh"));
-	String IPDomain = "192.168.0.0/24";
+	IPDomain = "192.168.0.0/24";
+#endif
+
+    if(parse_json("cfg.json", IPDomain, mac_table)){
+        cerr<<"Failed to parse cfg.json"<<endl;
+        return -1;
+    }
+
 
 	char result_buf[MAXLINE];
 	vector<tuple<string,string,string>> mac_ip_vendor_table;
