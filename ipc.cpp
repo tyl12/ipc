@@ -37,10 +37,12 @@ const char STR_IPDOMAIN[]="IPDomain";
 const char STR_MACTABLE[]="MacTable";
 const char STR_MAC[]="mac";
 const char STR_VENDOR[]="vendor";
+const char STR_USER[]="user";
+const char STR_PASSWD[]="passwd";
 
 mutex m;
 
-int parse_json(const char* jsonfile, string& IPDomain, vector<tuple<string,string>>& mac_table){
+int parse_json(const char* jsonfile, string& IPDomain, vector<tuple<string,string,string,string>>& mac_table){
     FILE *fp = fopen(jsonfile , "rb");
     if (fp == nullptr){
         cerr<<"Fail to find the json config file"<<endl;
@@ -75,12 +77,22 @@ int parse_json(const char* jsonfile, string& IPDomain, vector<tuple<string,strin
         assert(v.IsObject());
         assert(v.HasMember(STR_MAC));
         string mac = v[STR_MAC].GetString();
+
         string vendor = "hc"; //haikang by default
         if (v.HasMember(STR_VENDOR)){
             vendor = v[STR_VENDOR].GetString();
         }
-        cout<<"mac:"<<mac<<"  vendor:"<<vendor<<endl;
-        mac_table.push_back(make_tuple(mac, vendor));
+        string user = "admin"; //haikang by default
+        if (v.HasMember(STR_USER)){
+            user = v[STR_USER].GetString();
+        }
+        string passwd = "passwd"; //haikang by default
+        if (v.HasMember(STR_PASSWD)){
+            passwd = v[STR_PASSWD].GetString();
+        }
+
+        cout<<"mac:"<<mac<<"  vendor:"<<vendor<<"  user:"<<user<<"  passwd:"<<passwd<<endl;
+        mac_table.push_back(make_tuple(mac, vendor,user,passwd));
     }
     return 0;
 }
@@ -88,14 +100,14 @@ int parse_json(const char* jsonfile, string& IPDomain, vector<tuple<string,strin
 int main(int argc, char** argv)
 {
 	string IPDomain;
-	vector<tuple<string,string>> mac_table;
+	vector<tuple<string,string,string,string>> mac_table; //mac, vendor, user, passwd
 #if 0
-    mac_table.push_back(make_tuple("b4:a3:82:5e:5f:15", "hc"));
-    mac_table.push_back(make_tuple("4c:bd:8f:c6:30:1f", "hc"));
-    mac_table.push_back(make_tuple("4c:bd:8f:3f:19:db", "hc"));
-    mac_table.push_back(make_tuple("b4:a3:82:66:8b:e6", "hc"));
-    mac_table.push_back(make_tuple("b4:a3:82:6a:80:f0", "hc"));
-    mac_table.push_back(make_tuple("14:a7:8b:8f:d8:37", "dh"));
+    mac_table.push_back(make_tuple("b4:a3:82:5e:5f:15", "hc", "admin", "xxx"));
+    mac_table.push_back(make_tuple("4c:bd:8f:c6:30:1f", "hc", "admin", "xxx"));
+    mac_table.push_back(make_tuple("4c:bd:8f:3f:19:db", "hc", "admin", "xxx"));
+    mac_table.push_back(make_tuple("b4:a3:82:66:8b:e6", "hc", "admin", "xxx"));
+    mac_table.push_back(make_tuple("b4:a3:82:6a:80:f0", "hc", "admin", "xxx"));
+    mac_table.push_back(make_tuple("14:a7:8b:8f:d8:37", "dh", "admin", "xxx"));
 	IPDomain = "192.168.0.0/24";
 #endif
 
@@ -106,7 +118,7 @@ int main(int argc, char** argv)
 
 
 	char result_buf[MAXLINE];
-	vector<tuple<string,string,string>> mac_ip_vendor_table;
+	vector<tuple<string,string,string,string,string>> mac_ip_vendor_table;
 
     cout<<endl<<"Start to scan local device ip-mac tables....."<<endl;
 
@@ -134,7 +146,9 @@ int main(int argc, char** argv)
 		for (auto macvendor:mac_table){
 			string mac;
 			string vendor;
-			tie(mac,vendor)=macvendor;
+            string user;
+            string passwd;
+			tie(mac,vendor,user, passwd)=macvendor;
 #ifndef USE_BOOST
 			regex re(string("([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+).*=>.*")+mac+".*");
 			smatch sm;
@@ -146,7 +160,7 @@ int main(int argc, char** argv)
 			}
 			if (sm.size() == 2){
 				cout<<"ip="<<sm[1]<<" mac="<<mac<<endl;
-				mac_ip_vendor_table.push_back(tuple<string,string,string>(sm[1], mac, vendor));
+				mac_ip_vendor_table.push_back(tuple<string,string,string,string,string>(sm[1], mac, vendor, user, passwd));
 			}
 #else
             string mas = string("([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+).*=>.*")+mac+".*";
@@ -155,7 +169,7 @@ int main(int argc, char** argv)
             bool match_ret = boost::regex_match(str, sm, re);
 			if (match_ret && sm.size() == 2){
 				cout<<"Match: " << "ip="<<sm[1]<<" mac="<<mac<<endl;
-				mac_ip_vendor_table.push_back(tuple<string,string,string>(sm[1], mac, vendor));
+				mac_ip_vendor_table.push_back(tuple<string,string,string,string,string>(sm[1], mac, vendor, user, passwd));
 			}
 #endif
 		}
@@ -174,8 +188,10 @@ int main(int argc, char** argv)
 	    string ip;
 	    string mac;
 	    string vendor;
-	    tie(ip,mac,vendor)=s;
-	    cout<<"    "<<ip<<" => "<<mac<<" => "<<vendor<<endl;
+        string user;
+        string passwd;
+	    tie(ip,mac,vendor,user, passwd)=s;
+	    cout<<"    "<<ip<<" => "<<mac<<" => "<<vendor<<" => "<<user<<" => "<<passwd<<endl;
     }
     cout<<endl;
 
@@ -185,15 +201,17 @@ int main(int argc, char** argv)
 		string ip;
 		string mac;
 		string vendor;
-		tie(ip,mac,vendor)=s;
+        string user;
+        string passwd;
+		tie(ip,mac,vendor,user, passwd)=s;
 
 		string rtsp;
 		if (vendor == string("dh")){
             cout<<"Launch DaHua IPC"<<endl;
-			rtsp = string("rtsp://admin:xxxxxx@" + ip + ":554/cam/realmonitor?channel=1&subtype=0");
+			rtsp = string("rtsp://") + user + ":" + passwd + "@" + ip + ":554/cam/realmonitor?channel=1&subtype=0";
 		}else{
             cout<<"Launch HaiKang IPC"<<endl;
-			rtsp= string("rtsp://admin:xxxxxx@" + ip +":554/ch0/main/av_stream");
+			rtsp= string("rtsp://") + user + ":" + passwd + "@" + ip + ":554/ch0/main/av_stream";
 		}
 		ts.push_back(thread(
 			[=](){

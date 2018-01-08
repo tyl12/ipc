@@ -3,26 +3,38 @@
     "MacTable":[
         {
             "mac":"b4:a3:82:5e:5f:15",
-            "vendor":"hc"
+            "vendor":"hc",
+            "user":"admin",
+            "passwd":"xxx"
         },
         {
             "mac":"4c:bd:8f:c6:30:1f",
-            "vendor":"hc"
+            "vendor":"hc",
+            "user":"admin",
+            "passwd":"xxx"
         },
         {
             "mac":"4c:bd:8f:3f:19:db",
-            "vendor":"hc"
+            "vendor":"hc",
+            "user":"admin",
+            "passwd":"xxx"
         },
         {
             "mac":"b4:a3:82:66:8b:e6",
-            "vendor":"hc"
+            "vendor":"hc",
+            "user":"admin",
+            "passwd":"xxx"
         },
         {
             "mac":"b4:a3:82:6a:80:f0",
-            "vendor":"hc"
+            "vendor":"hc",
+            "user":"admin",
+            "passwd":"xxx"
         },
         {
             "mac":"14:a7:8b:8f:d8:37",
-            "vendor":"dh"
+            "vendor":"dh",
+            "user":"admin",
+            "passwd":"xxx"
         }]
 }
